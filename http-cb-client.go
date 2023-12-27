@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/sony/gobreaker"
 )
@@ -11,8 +12,10 @@ import (
 type circuitBreakerBackedHttpClient struct {
 	sync.Mutex
 	*resilientHttpClient
-	MaxRequests         uint32
-	ConsecutiveFailures uint32
+	maxRequests         uint32
+	consecutiveFailures uint32
+	interval            time.Duration
+	timeout             time.Duration
 	circuitBreakers     map[string]*gobreaker.CircuitBreaker
 }
 
@@ -24,9 +27,11 @@ func (c *circuitBreakerBackedHttpClient) getCircuitBreaker(resource string) *gob
 	}
 	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
 		Name:        fmt.Sprintf("http client circuit breaker for resource %s", resource),
-		MaxRequests: c.MaxRequests,
+		MaxRequests: c.maxRequests,
+		Interval:    c.interval,
+		Timeout:     c.timeout,
 		ReadyToTrip: func(counts gobreaker.Counts) bool {
-			return counts.ConsecutiveFailures > c.ConsecutiveFailures
+			return counts.ConsecutiveFailures > c.consecutiveFailures
 		},
 	})
 	c.circuitBreakers[resource] = cb

@@ -26,15 +26,18 @@ func CreateEnhancedHttpClient(timeout time.Duration,
 	backoffMs uint16,
 	circuitBreakerMaxRequests uint32,
 	circuitBreakerConsecutiveFailures uint32,
-) HttpClient {
+	circuitBreakerInterval time.Duration,
+	curcircuitBreakerTimeout time.Duration) HttpClient {
 	resilientHttpClient := resilientHttpClient{
 		client:    &http.Client{Timeout: timeout},
 		maxRetry:  maxRetry,
 		backoffMs: backoffMs,
 	}
 	return &circuitBreakerBackedHttpClient{
-		MaxRequests:         circuitBreakerMaxRequests,
-		ConsecutiveFailures: circuitBreakerConsecutiveFailures,
+		maxRequests:         circuitBreakerMaxRequests,
+		consecutiveFailures: circuitBreakerConsecutiveFailures,
+		interval:            circuitBreakerInterval,
+		timeout:             curcircuitBreakerTimeout,
 		Mutex:               sync.Mutex{},
 		resilientHttpClient: &resilientHttpClient,
 		circuitBreakers:     make(map[string]*gobreaker.CircuitBreaker),
