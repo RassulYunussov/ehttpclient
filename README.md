@@ -8,7 +8,7 @@ More details: https://medium.com/@yunussov/enhanced-http-client-b406a8fa2c0b
 Usage:
 
 ```
-go get go get github.com/RassulYunussov/ehttpclient
+go get github.com/RassulYunussov/ehttpclient
 ```
 
 ```
