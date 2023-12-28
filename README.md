@@ -20,8 +20,7 @@ By default ehttpclient.CreateEnhancedHttpClient produces standard HttpClient wit
 
 ### Default 
 
-No retry policy
-No circuit breaker
+No retry policy. No circuit breaker
 
 ```
 defaultClient := ehttpclient.CreateEnhancedHttpClient(200*time.Millisecond)
@@ -31,7 +30,6 @@ defaultClient := ehttpclient.CreateEnhancedHttpClient(200*time.Millisecond)
 
 The retry policy uses multiplication of attempt & backoffMs. The result should not exceed uint16.
 Reasonable values: 
-
 - 1-5 for maxRetry
 - 50 - 5000 milliseconds
 
