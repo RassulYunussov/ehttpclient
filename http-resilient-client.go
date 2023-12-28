@@ -17,14 +17,14 @@ type resilientHttpClient struct {
 }
 
 func (c *resilientHttpClient) DoResourceRequest(resource string, r *http.Request) (*http.Response, error) {
-	return c.doWithRetry(resource, r)
+	return c.doWithRetry(r)
 }
 
 func (c *resilientHttpClient) Do(r *http.Request) (*http.Response, error) {
 	return c.DoResourceRequest(getResource(r), r)
 }
 
-func (c *resilientHttpClient) doWithRetry(resource string, r *http.Request) (*http.Response, error) {
+func (c *resilientHttpClient) doWithRetry(r *http.Request) (*http.Response, error) {
 	var resp *http.Response
 	var err error
 	for i := uint8(0); i < c.maxRetry; i++ {

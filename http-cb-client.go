@@ -41,7 +41,7 @@ func (c *circuitBreakerBackedHttpClient) getCircuitBreaker(resource string) *gob
 func (c *circuitBreakerBackedHttpClient) DoResourceRequest(resource string, r *http.Request) (*http.Response, error) {
 	cb := c.getCircuitBreaker(resource)
 	resp, err := cb.Execute(func() (interface{}, error) {
-		return c.doWithRetry(resource, r)
+		return c.doWithRetry(r)
 	})
 	if err != nil {
 		return nil, err
