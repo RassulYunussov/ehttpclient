@@ -31,7 +31,7 @@ func (c *circuitBreakerBackedHttpClient) getCircuitBreaker(resource string) *gob
 		Interval:    c.interval,
 		Timeout:     c.timeout,
 		ReadyToTrip: func(counts gobreaker.Counts) bool {
-			return counts.ConsecutiveFailures > c.consecutiveFailures
+			return counts.ConsecutiveFailures >= c.consecutiveFailures
 		},
 	})
 	c.circuitBreakers[resource] = cb

@@ -43,14 +43,14 @@ func TestOk(t *testing.T) {
 	assert.Equal(t, resp.StatusCode, http.StatusOK)
 }
 
-func TestNumberOfRequestsIs3For5xx(t *testing.T) {
+func TestNumberOfRequestsIs4For5xx(t *testing.T) {
 	s, calls := getHttpServer(false, false)
 	defer s.Close()
 	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
 	client := CreateEnhancedHttpClient(200*time.Millisecond, WithRetry(3, 50))
 	_, err := client.Do(request)
 	assert.ErrorIs(t, err, ErrHttpStatus)
-	assert.Equal(t, 3, *calls, "expected 3 calls")
+	assert.Equal(t, 4, *calls, "expected 4 calls")
 }
 
 func TestTimeoutError(t *testing.T) {
@@ -60,7 +60,7 @@ func TestTimeoutError(t *testing.T) {
 	client := CreateEnhancedHttpClient(20*time.Millisecond, WithRetry(3, 50))
 	_, err := client.Do(request)
 	assert.Equal(t, (err.(*url.Error)).Timeout(), true)
-	assert.Equal(t, 3, *calls, "expected 3 calls")
+	assert.Equal(t, 4, *calls, "expected 4 calls")
 }
 
 func TestContextDeadlineError(t *testing.T) {
@@ -80,15 +80,15 @@ func TestCircuitBreaker(t *testing.T) {
 	defer s.Close()
 	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
 	client := CreateEnhancedHttpClient(200*time.Millisecond, WithCircuitBreaker(1, 2, time.Second, time.Second))
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 3; i++ {
 		_, err := client.Do(request)
-		if i > 2 {
+		if i > 1 {
 			assert.ErrorIs(t, err, gobreaker.ErrOpenState)
 		} else {
 			assert.ErrorIs(t, err, ErrHttpStatus)
 		}
 	}
-	assert.Equal(t, 3, *calls, "expected only 3 requests to reach server")
+	assert.Equal(t, 2, *calls, "expected only 2 requests to reach server")
 }
 
 func TestRetryWithCircuitBreaker(t *testing.T) {
@@ -96,9 +96,9 @@ func TestRetryWithCircuitBreaker(t *testing.T) {
 	defer s.Close()
 	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
 	client := CreateEnhancedHttpClient(200*time.Millisecond, WithRetry(2, 10), WithCircuitBreaker(1, 2, time.Second, time.Second))
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 3; i++ {
 		_, err := client.Do(request)
-		if i > 2 {
+		if i > 1 {
 			assert.ErrorIs(t, err, gobreaker.ErrOpenState)
 		} else {
 			assert.ErrorIs(t, err, ErrHttpStatus)
@@ -111,19 +111,17 @@ func TestCircuitBreakerTransitionToClosed(t *testing.T) {
 	s, calls := getHttpServer(false, false)
 	defer s.Close()
 	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
-	client := CreateEnhancedHttpClient(200*time.Millisecond, WithCircuitBreaker(5, 2, time.Second, time.Millisecond*200))
-	for i := 0; i < 5; i++ {
+	client := CreateEnhancedHttpClient(200*time.Millisecond, WithCircuitBreaker(1, 2, time.Second, time.Millisecond*100))
+	for i := 0; i < 3; i++ {
 		_, err := client.Do(request)
-		if i > 2 {
-			if i > 2 {
-				assert.ErrorIs(t, err, gobreaker.ErrOpenState)
-			} else {
-				assert.ErrorIs(t, err, ErrHttpStatus)
-			}
+		if i > 1 {
+			assert.ErrorIs(t, err, gobreaker.ErrOpenState)
+		} else {
+			assert.ErrorIs(t, err, ErrHttpStatus)
 		}
 	}
-	time.Sleep(time.Millisecond * 200)
+	time.Sleep(time.Millisecond * 100)
 	_, err := client.Do(request)
 	assert.ErrorIs(t, err, ErrHttpStatus)
-	assert.Equal(t, 4, *calls, "expected circuit breaker to close and 4-th requests to reach server")
+	assert.Equal(t, 3, *calls, "expected circuit breaker to be closed and 3-d requests to reach server")
 }

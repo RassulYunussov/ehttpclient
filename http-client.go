@@ -8,10 +8,8 @@ import (
 	"github.com/sony/gobreaker"
 )
 
-// Enhanced HttpClient backed by resiliency patterns
-// includes:
-// - retry strategy
-// - circuit breaker
+// Enhanced HttpClient backed by resiliency patterns.
+// Includes: retry & circuit breaker policies
 type HttpClient interface {
 	// method should have a semantic resource name that will be used to separate circuit breakers
 	DoResourceRequest(resource string, r *http.Request) (*http.Response, error)
@@ -19,12 +17,12 @@ type HttpClient interface {
 	Do(r *http.Request) (*http.Response, error)
 }
 
-// Get new instance of Enhanced Http Client
+// Get new instance of Enhanced Http Client.
 // Circuit breaker used github.com/sony/gobreaker
 func CreateEnhancedHttpClient(timeout time.Duration, opts ...func(*enhancedHttpClientCreationParameters) *enhancedHttpClientCreationParameters) HttpClient {
 	resilientHttpClient := resilientHttpClient{
 		client:   &http.Client{Timeout: timeout},
-		maxRetry: 1, // default to not retry
+		maxRetry: 0, // default to not retry
 	}
 	enhancedHttpClientCreationParameters := new(enhancedHttpClientCreationParameters)
 	for _, o := range opts {
@@ -52,23 +50,7 @@ func CreateEnhancedHttpClient(timeout time.Duration, opts ...func(*enhancedHttpC
 	return &resilientHttpClient
 }
 
-type enhancedHttpClientCreationParameters struct {
-	retryParameters          *retryParameters
-	circuitBreakerParameters *circuitBreakerParameters
-}
-
-type retryParameters struct {
-	maxRetry  uint8
-	backoffMs uint16
-}
-
-type circuitBreakerParameters struct {
-	maxRequests         uint32
-	consecutiveFailures uint32
-	interval            time.Duration
-	timeout             time.Duration
-}
-
+// Apply retry policy to HttpClient
 func WithRetry(maxRetry uint8,
 	backoffMs uint16) func(h *enhancedHttpClientCreationParameters) *enhancedHttpClientCreationParameters {
 	return func(h *enhancedHttpClientCreationParameters) *enhancedHttpClientCreationParameters {
@@ -80,6 +62,8 @@ func WithRetry(maxRetry uint8,
 	}
 }
 
+// Apply circuit breaker policy to HttpClient
+// https://github.com/sony/gobreaker
 func WithCircuitBreaker(maxRequests uint32,
 	consecutiveFailures uint32,
 	interval time.Duration,
@@ -93,8 +77,4 @@ func WithCircuitBreaker(maxRequests uint32,
 		h.circuitBreakerParameters = circuitBreakerParameters
 		return h
 	}
-}
-
-func getResource(r *http.Request) string {
-	return r.Method + "_" + r.URL.Path
 }

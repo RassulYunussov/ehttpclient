@@ -8,8 +8,6 @@ import (
 	"time"
 )
 
-var ErrHttpStatus = errors.New("5xx http status error")
-
 type resilientHttpClient struct {
 	client    *http.Client
 	maxRetry  uint8
@@ -27,7 +25,7 @@ func (c *resilientHttpClient) Do(r *http.Request) (*http.Response, error) {
 func (c *resilientHttpClient) doWithRetry(r *http.Request) (*http.Response, error) {
 	var resp *http.Response
 	var err error
-	for i := uint8(0); i < c.maxRetry; i++ {
+	for i := uint8(0); i <= c.maxRetry; i++ {
 		resp, err = c.client.Do(r)
 		if err == nil && resp.StatusCode < http.StatusInternalServerError {
 			return resp, nil
