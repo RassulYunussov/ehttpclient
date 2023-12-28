@@ -21,26 +21,77 @@ type HttpClient interface {
 
 // Get new instance of Enhanced Http Client
 // Circuit breaker used github.com/sony/gobreaker
-func CreateEnhancedHttpClient(timeout time.Duration,
-	maxRetry uint8,
-	backoffMs uint16,
-	circuitBreakerMaxRequests uint32,
-	circuitBreakerConsecutiveFailures uint32,
-	circuitBreakerInterval time.Duration,
-	curcircuitBreakerTimeout time.Duration) HttpClient {
+func CreateEnhancedHttpClient(timeout time.Duration, opts ...func(*enhancedHttpClientCreationParameters) *enhancedHttpClientCreationParameters) HttpClient {
 	resilientHttpClient := resilientHttpClient{
-		client:    &http.Client{Timeout: timeout},
-		maxRetry:  maxRetry,
-		backoffMs: backoffMs,
+		client:   &http.Client{Timeout: timeout},
+		maxRetry: 1, // default to not retry
 	}
-	return &circuitBreakerBackedHttpClient{
-		maxRequests:         circuitBreakerMaxRequests,
-		consecutiveFailures: circuitBreakerConsecutiveFailures,
-		interval:            circuitBreakerInterval,
-		timeout:             curcircuitBreakerTimeout,
-		Mutex:               sync.Mutex{},
-		resilientHttpClient: &resilientHttpClient,
-		circuitBreakers:     make(map[string]*gobreaker.CircuitBreaker),
+	enhancedHttpClientCreationParameters := new(enhancedHttpClientCreationParameters)
+	for _, o := range opts {
+		enhancedHttpClientCreationParameters = o(enhancedHttpClientCreationParameters)
+	}
+
+	if enhancedHttpClientCreationParameters.retryParameters != nil {
+		retryParameters := enhancedHttpClientCreationParameters.retryParameters
+		resilientHttpClient.maxRetry = retryParameters.maxRetry
+		resilientHttpClient.backoffMs = retryParameters.backoffMs
+	}
+
+	if enhancedHttpClientCreationParameters.circuitBreakerParameters != nil {
+		circuitBreakerParameters := enhancedHttpClientCreationParameters.circuitBreakerParameters
+		return &circuitBreakerBackedHttpClient{
+			maxRequests:         circuitBreakerParameters.maxRequests,
+			consecutiveFailures: circuitBreakerParameters.consecutiveFailures,
+			interval:            circuitBreakerParameters.interval,
+			timeout:             circuitBreakerParameters.timeout,
+			Mutex:               sync.Mutex{},
+			resilientHttpClient: &resilientHttpClient,
+			circuitBreakers:     make(map[string]*gobreaker.CircuitBreaker),
+		}
+	}
+	return &resilientHttpClient
+}
+
+type enhancedHttpClientCreationParameters struct {
+	retryParameters          *retryParameters
+	circuitBreakerParameters *circuitBreakerParameters
+}
+
+type retryParameters struct {
+	maxRetry  uint8
+	backoffMs uint16
+}
+
+type circuitBreakerParameters struct {
+	maxRequests         uint32
+	consecutiveFailures uint32
+	interval            time.Duration
+	timeout             time.Duration
+}
+
+func WithRetry(maxRetry uint8,
+	backoffMs uint16) func(h *enhancedHttpClientCreationParameters) *enhancedHttpClientCreationParameters {
+	return func(h *enhancedHttpClientCreationParameters) *enhancedHttpClientCreationParameters {
+		retryParameters := new(retryParameters)
+		retryParameters.backoffMs = backoffMs
+		retryParameters.maxRetry = maxRetry
+		h.retryParameters = retryParameters
+		return h
+	}
+}
+
+func WithCircuitBreaker(maxRequests uint32,
+	consecutiveFailures uint32,
+	interval time.Duration,
+	timeout time.Duration) func(h *enhancedHttpClientCreationParameters) *enhancedHttpClientCreationParameters {
+	return func(h *enhancedHttpClientCreationParameters) *enhancedHttpClientCreationParameters {
+		circuitBreakerParameters := new(circuitBreakerParameters)
+		circuitBreakerParameters.maxRequests = maxRequests
+		circuitBreakerParameters.consecutiveFailures = consecutiveFailures
+		circuitBreakerParameters.interval = interval
+		circuitBreakerParameters.timeout = timeout
+		h.circuitBreakerParameters = circuitBreakerParameters
+		return h
 	}
 }
 

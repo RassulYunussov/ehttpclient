@@ -38,10 +38,12 @@ func (c *resilientHttpClient) doWithRetry(resource string, r *http.Request) (*ht
 		if err == nil {
 			err = ErrHttpStatus
 		}
-		jitter := uint16(rand.Intn(int(c.backoffMs / 2)))
-		backOff := uint16((i + 1)) * c.backoffMs
-		delay := time.Duration(backOff+jitter) * time.Millisecond
-		time.Sleep(delay)
+		if c.backoffMs != 0 {
+			jitter := uint16(rand.Intn(int(c.backoffMs / 2)))
+			backOff := uint16((i + 1)) * c.backoffMs
+			delay := time.Duration(backOff+jitter) * time.Millisecond
+			time.Sleep(delay)
+		}
 	}
 	return nil, err
 }

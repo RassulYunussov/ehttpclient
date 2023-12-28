@@ -36,7 +36,7 @@ func TestOk(t *testing.T) {
 	s, calls := getHttpServer(true, false)
 	defer s.Close()
 	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
-	client := CreateEnhancedHttpClient(200*time.Millisecond, 3, 50, 50, 10, time.Second, time.Second)
+	client := CreateEnhancedHttpClient(200*time.Millisecond, WithRetry(3, 50))
 	resp, err := client.Do(request)
 	assert.NilError(t, err)
 	assert.Equal(t, 1, *calls, "expected 1 call")
@@ -47,7 +47,7 @@ func TestNumberOfRequestsIs3For5xx(t *testing.T) {
 	s, calls := getHttpServer(false, false)
 	defer s.Close()
 	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
-	client := CreateEnhancedHttpClient(200*time.Millisecond, 3, 50, 50, 10, time.Second, time.Second)
+	client := CreateEnhancedHttpClient(200*time.Millisecond, WithRetry(3, 50))
 	_, err := client.Do(request)
 	assert.ErrorIs(t, err, ErrHttpStatus)
 	assert.Equal(t, 3, *calls, "expected 3 calls")
@@ -57,7 +57,7 @@ func TestTimeoutError(t *testing.T) {
 	s, calls := getHttpServer(false, true)
 	defer s.Close()
 	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
-	client := CreateEnhancedHttpClient(20*time.Millisecond, 3, 10, 50, 10, time.Second, time.Second)
+	client := CreateEnhancedHttpClient(20*time.Millisecond, WithRetry(3, 50))
 	_, err := client.Do(request)
 	assert.Equal(t, (err.(*url.Error)).Timeout(), true)
 	assert.Equal(t, 3, *calls, "expected 3 calls")
@@ -69,7 +69,7 @@ func TestContextDeadlineError(t *testing.T) {
 	timedContext, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
 	request, _ := http.NewRequestWithContext(timedContext, http.MethodGet, s.URL, nil)
-	client := CreateEnhancedHttpClient(20*time.Millisecond, 3, 10, 50, 10, time.Second, time.Second)
+	client := CreateEnhancedHttpClient(200*time.Millisecond, WithRetry(3, 10))
 	_, err := client.Do(request)
 	assert.ErrorIs(t, err, context.DeadlineExceeded)
 	assert.Equal(t, 1, *calls, "expected 1 call")
@@ -79,26 +79,40 @@ func TestCircuitBreaker(t *testing.T) {
 	s, calls := getHttpServer(false, false)
 	defer s.Close()
 	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
-	client := CreateEnhancedHttpClient(200*time.Millisecond, 1, 10, 5, 2, time.Second, time.Second)
-	for i := 0; i < 4; i++ {
+	client := CreateEnhancedHttpClient(200*time.Millisecond, WithCircuitBreaker(1, 2, time.Second, time.Second))
+	for i := 0; i < 5; i++ {
 		_, err := client.Do(request)
 		if i > 2 {
-			if i > 2 {
-				assert.ErrorIs(t, err, gobreaker.ErrOpenState)
-			} else {
-				assert.ErrorIs(t, err, ErrHttpStatus)
-			}
+			assert.ErrorIs(t, err, gobreaker.ErrOpenState)
+		} else {
+			assert.ErrorIs(t, err, ErrHttpStatus)
 		}
 	}
 	assert.Equal(t, 3, *calls, "expected only 3 requests to reach server")
+}
+
+func TestRetryWithCircuitBreaker(t *testing.T) {
+	s, calls := getHttpServer(false, false)
+	defer s.Close()
+	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
+	client := CreateEnhancedHttpClient(200*time.Millisecond, WithRetry(2, 10), WithCircuitBreaker(1, 2, time.Second, time.Second))
+	for i := 0; i < 5; i++ {
+		_, err := client.Do(request)
+		if i > 2 {
+			assert.ErrorIs(t, err, gobreaker.ErrOpenState)
+		} else {
+			assert.ErrorIs(t, err, ErrHttpStatus)
+		}
+	}
+	assert.Equal(t, 6, *calls, "expected only 6 requests to reach server")
 }
 
 func TestCircuitBreakerTransitionToClosed(t *testing.T) {
 	s, calls := getHttpServer(false, false)
 	defer s.Close()
 	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
-	client := CreateEnhancedHttpClient(200*time.Millisecond, 1, 10, 5, 2, time.Second, time.Millisecond*500)
-	for i := 0; i < 4; i++ {
+	client := CreateEnhancedHttpClient(200*time.Millisecond, WithCircuitBreaker(5, 2, time.Second, time.Millisecond*200))
+	for i := 0; i < 5; i++ {
 		_, err := client.Do(request)
 		if i > 2 {
 			if i > 2 {
@@ -108,8 +122,7 @@ func TestCircuitBreakerTransitionToClosed(t *testing.T) {
 			}
 		}
 	}
-
-	time.Sleep(time.Millisecond * 500)
+	time.Sleep(time.Millisecond * 200)
 	_, err := client.Do(request)
 	assert.ErrorIs(t, err, ErrHttpStatus)
 	assert.Equal(t, 4, *calls, "expected circuit breaker to close and 4-th requests to reach server")
