@@ -29,6 +29,12 @@ defaultClient := ehttpclient.CreateEnhancedHttpClient(200*time.Millisecond)
 
 ### Retry
 
+The retry policy uses multiplication of attempt & backoffMs. The result should not exceed uint16.
+Reasonable values: 
+
+- 1-5 for maxRetry
+- 50 - 5000 milliseconds
+
 ```
 // retry count 3
 // backoff timeout range up to 100ms
@@ -36,12 +42,14 @@ retryClient := ehttpclient.CreateEnhancedHttpClient(200*time.Millisecond, ehttpc
 ```
 
 ### Circuit breaker
+
 ```
 // detailed info about configuration can be found here: https://github.com/sony/gobreaker
 retryClient := ehttpclient.CreateEnhancedHttpClient(200*time.Millisecond, ehttpclient.WithCircuitBreaker(1, 2, time.Second, time.Second))
 ```
 
 ### Retry + Circuit breaker
+
 ```
 ehttpClient := ehttpclient.CreateEnhancedHttpClient(200*time.Millisecond, ehttpclient.WithRetry(3, 100), ehttpclient.WithCircuitBreaker(1, 2, time.Second, time.Second))
 ```
