@@ -10,16 +10,15 @@ import (
 
 // Enhanced HttpClient backed by resiliency patterns.
 // Includes: retry & circuit breaker policies
-type HttpClient interface {
+type EnhancedHttpClient interface {
 	// method should have a semantic resource name that will be used to separate circuit breakers
 	DoResourceRequest(resource string, r *http.Request) (*http.Response, error)
 	// classic HttpClient interface support, gets resource from path + method
 	Do(r *http.Request) (*http.Response, error)
 }
 
-// Get new instance of Enhanced Http Client.
-// Circuit breaker used github.com/sony/gobreaker
-func CreateEnhancedHttpClient(timeout time.Duration, opts ...func(*enhancedHttpClientCreationParameters) *enhancedHttpClientCreationParameters) HttpClient {
+// Get new instance of EnhancedHttpClient
+func Create(timeout time.Duration, opts ...func(*enhancedHttpClientCreationParameters) *enhancedHttpClientCreationParameters) EnhancedHttpClient {
 	resilientHttpClient := resilientHttpClient{
 		client:   &http.Client{Timeout: timeout},
 		maxRetry: 0, // default to not retry
@@ -50,7 +49,7 @@ func CreateEnhancedHttpClient(timeout time.Duration, opts ...func(*enhancedHttpC
 	return &resilientHttpClient
 }
 
-// Apply retry policy to HttpClient
+// Apply retry policy to EnhancedHttpClient
 func WithRetry(maxRetry uint8,
 	backoffTimeout time.Duration) func(h *enhancedHttpClientCreationParameters) *enhancedHttpClientCreationParameters {
 	return func(h *enhancedHttpClientCreationParameters) *enhancedHttpClientCreationParameters {
@@ -62,7 +61,7 @@ func WithRetry(maxRetry uint8,
 	}
 }
 
-// Apply circuit breaker policy to HttpClient
+// Apply circuit breaker policy to EnhancedHttpClient.
 // https://github.com/sony/gobreaker
 func WithCircuitBreaker(maxRequests uint32,
 	consecutiveFailures uint32,

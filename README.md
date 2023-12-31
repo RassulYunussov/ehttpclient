@@ -2,9 +2,16 @@
 
 Http Client Library that provides "enhanced" http client with resiliency & circuit breaker backed functionality
 
-More details: https://medium.com/@yunussov/enhanced-http-client-b406a8fa2c0b
+## Retry policy
 
-Read more about circuit breaker configuration from: https://github.com/sony/gobreaker
+EnhancedHttpClient will retry requests for 
+- Network issues
+- 5xx HTTP status
+- Request Timeout
+
+## Circuit breaker policy
+
+Circuit breaker layer resides before retry policy layer and can be in __closed|open|half-open__ states. Used as-is from [gobreaker](https://github.com/sony/gobreaker)
 
 Usage:
 
@@ -12,18 +19,17 @@ Usage:
 go get github.com/RassulYunussov/ehttpclient
 ```
 
-By default ehttpclient.CreateEnhancedHttpClient produces standard HttpClient with no retry and no circuit breaker. Client can combine:
+By default ehttpclient.Create produces EnhancedHttpClient with no retry and no circuit breaker. Client can add policies:
 - retry
 - circuit breaker
 - retry + cicruit breaker
-
 
 ### Default 
 
 No retry policy. No circuit breaker
 
 ```
-defaultClient := ehttpclient.CreateEnhancedHttpClient(200*time.Millisecond)
+defaultClient := ehttpclient.Create(200*time.Millisecond)
 ```
 
 ### Retry
@@ -33,14 +39,14 @@ The retry policy uses multiplication of attempt & backoffTimeout
 ```
 // retry count 3
 // backoff timeout
-retryClient := ehttpclient.CreateEnhancedHttpClient(200*time.Millisecond, ehttpclient.WithRetry(3, 100*time.Millisecond))
+retryClient := ehttpclient.Create(200*time.Millisecond, ehttpclient.WithRetry(3, 100*time.Millisecond))
 ```
 
 ### Circuit breaker
 
 ```
 // detailed info about configuration can be found here: https://github.com/sony/gobreaker
-retryClient := ehttpclient.CreateEnhancedHttpClient(200*time.Millisecond, ehttpclient.WithCircuitBreaker(1, 2, time.Second, time.Second))
+retryClient := ehttpclient.Create(200*time.Millisecond, ehttpclient.WithCircuitBreaker(1, 2, time.Second, time.Second))
 ```
 
 ### Retry + Circuit breaker
