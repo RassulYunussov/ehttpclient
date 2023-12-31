@@ -11,8 +11,8 @@ type enhancedHttpClientCreationParameters struct {
 }
 
 type retryParameters struct {
-	maxRetry  uint8
-	backoffMs uint16
+	maxRetry       uint8
+	backoffTimeout time.Duration
 }
 
 type circuitBreakerParameters struct {

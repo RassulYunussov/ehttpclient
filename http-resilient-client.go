@@ -9,9 +9,9 @@ import (
 )
 
 type resilientHttpClient struct {
-	client    *http.Client
-	maxRetry  uint8
-	backoffMs uint16
+	client         *http.Client
+	maxRetry       uint8
+	backoffTimeout time.Duration
 }
 
 func (c *resilientHttpClient) DoResourceRequest(resource string, r *http.Request) (*http.Response, error) {
@@ -36,10 +36,10 @@ func (c *resilientHttpClient) doWithRetry(r *http.Request) (*http.Response, erro
 		if err == nil {
 			err = ErrHttpStatus
 		}
-		if c.backoffMs > 1 {
-			jitter := uint16(rand.Intn(int(c.backoffMs / 2)))
-			backOff := uint16((i + 1)) * c.backoffMs
-			delay := time.Duration(backOff+jitter) * time.Millisecond
+		if c.backoffTimeout > 1 {
+			jitter := rand.Int63n(int64(c.backoffTimeout) / 2)
+			backOff := int64(i+1) * int64(c.backoffTimeout)
+			delay := time.Duration(backOff + jitter)
 			time.Sleep(delay)
 		}
 	}

@@ -32,7 +32,7 @@ func CreateEnhancedHttpClient(timeout time.Duration, opts ...func(*enhancedHttpC
 	if enhancedHttpClientCreationParameters.retryParameters != nil {
 		retryParameters := enhancedHttpClientCreationParameters.retryParameters
 		resilientHttpClient.maxRetry = retryParameters.maxRetry
-		resilientHttpClient.backoffMs = retryParameters.backoffMs
+		resilientHttpClient.backoffTimeout = retryParameters.backoffTimeout
 	}
 
 	if enhancedHttpClientCreationParameters.circuitBreakerParameters != nil {
@@ -52,10 +52,10 @@ func CreateEnhancedHttpClient(timeout time.Duration, opts ...func(*enhancedHttpC
 
 // Apply retry policy to HttpClient
 func WithRetry(maxRetry uint8,
-	backoffMs uint16) func(h *enhancedHttpClientCreationParameters) *enhancedHttpClientCreationParameters {
+	backoffTimeout time.Duration) func(h *enhancedHttpClientCreationParameters) *enhancedHttpClientCreationParameters {
 	return func(h *enhancedHttpClientCreationParameters) *enhancedHttpClientCreationParameters {
 		retryParameters := new(retryParameters)
-		retryParameters.backoffMs = backoffMs
+		retryParameters.backoffTimeout = backoffTimeout
 		retryParameters.maxRetry = maxRetry
 		h.retryParameters = retryParameters
 		return h
