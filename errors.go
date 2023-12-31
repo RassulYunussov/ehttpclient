@@ -2,4 +2,8 @@ package ehttpclient
 
 import "errors"
 
-var ErrHttpStatus = errors.New("5xx http status error")
+var errHttp5xxStatus = errors.New("5xx http status error")
+
+func IsHttp5xxStatusError(err error) bool {
+	return errors.Is(err, errHttp5xxStatus)
+}

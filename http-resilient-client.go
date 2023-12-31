@@ -12,6 +12,7 @@ type resilientHttpClient struct {
 	client         *http.Client
 	maxRetry       uint8
 	backoffTimeout time.Duration
+	backOffs       []int64
 }
 
 func (c *resilientHttpClient) DoResourceRequest(resource string, r *http.Request) (*http.Response, error) {
@@ -25,7 +26,8 @@ func (c *resilientHttpClient) Do(r *http.Request) (*http.Response, error) {
 func (c *resilientHttpClient) doWithRetry(r *http.Request) (*http.Response, error) {
 	var resp *http.Response
 	var err error
-	for i := uint8(0); i <= c.maxRetry; i++ {
+	backoffTimeout := int64(c.backoffTimeout)
+	for i := int64(0); i <= int64(c.maxRetry); i++ {
 		resp, err = c.client.Do(r)
 		if err == nil && resp.StatusCode < http.StatusInternalServerError {
 			return resp, nil
@@ -34,12 +36,11 @@ func (c *resilientHttpClient) doWithRetry(r *http.Request) (*http.Response, erro
 			return nil, err
 		}
 		if err == nil {
-			err = ErrHttpStatus
+			err = errHttp5xxStatus
 		}
-		if c.backoffTimeout > 1 {
-			jitter := rand.Int63n(int64(c.backoffTimeout) / 2)
-			backOff := int64(i+1) * int64(c.backoffTimeout)
-			delay := time.Duration(backOff + jitter)
+		if backoffTimeout > 1 {
+			jitter := rand.Int63n(c.backOffs[i] >> 1)
+			delay := time.Duration(c.backOffs[i] + jitter)
 			time.Sleep(delay)
 		}
 	}

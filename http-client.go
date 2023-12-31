@@ -9,7 +9,9 @@ import (
 )
 
 // Enhanced HttpClient backed by resiliency patterns.
-// Includes: retry & circuit breaker policies
+// Includes: retry & circuit breaker policies.
+// Retriable errors: http-5xx, network errors
+// Non-retriable errors: context.DeadlineExceeded|context.Canceled
 type EnhancedHttpClient interface {
 	// method should have a semantic resource name that will be used to separate circuit breakers
 	DoResourceRequest(resource string, r *http.Request) (*http.Response, error)
@@ -32,6 +34,10 @@ func Create(timeout time.Duration, opts ...func(*enhancedHttpClientCreationParam
 		retryParameters := enhancedHttpClientCreationParameters.retryParameters
 		resilientHttpClient.maxRetry = retryParameters.maxRetry
 		resilientHttpClient.backoffTimeout = retryParameters.backoffTimeout
+		resilientHttpClient.backOffs = make([]int64, retryParameters.maxRetry+1)
+		for i := uint8(0); i <= retryParameters.maxRetry; i++ {
+			resilientHttpClient.backOffs[i] = int64(i+1) * int64(retryParameters.backoffTimeout)
+		}
 	}
 
 	if enhancedHttpClientCreationParameters.circuitBreakerParameters != nil {
