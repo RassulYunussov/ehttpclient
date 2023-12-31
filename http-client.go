@@ -21,15 +21,11 @@ type EnhancedHttpClient interface {
 
 // Get new instance of EnhancedHttpClient
 func Create(timeout time.Duration, opts ...func(*enhancedHttpClientCreationParameters) *enhancedHttpClientCreationParameters) EnhancedHttpClient {
-	resilientHttpClient := resilientHttpClient{
-		client:   &http.Client{Timeout: timeout},
-		maxRetry: 0, // default to not retry
-	}
+	resilientHttpClient := resilientHttpClient{client: &http.Client{Timeout: timeout}} // default to not retry
 	enhancedHttpClientCreationParameters := new(enhancedHttpClientCreationParameters)
 	for _, o := range opts {
 		enhancedHttpClientCreationParameters = o(enhancedHttpClientCreationParameters)
 	}
-
 	if enhancedHttpClientCreationParameters.retryParameters != nil {
 		retryParameters := enhancedHttpClientCreationParameters.retryParameters
 		resilientHttpClient.maxRetry = retryParameters.maxRetry
@@ -39,7 +35,6 @@ func Create(timeout time.Duration, opts ...func(*enhancedHttpClientCreationParam
 			resilientHttpClient.backOffs[i] = int64(i+1) * int64(retryParameters.backoffTimeout)
 		}
 	}
-
 	if enhancedHttpClientCreationParameters.circuitBreakerParameters != nil {
 		circuitBreakerParameters := enhancedHttpClientCreationParameters.circuitBreakerParameters
 		return &circuitBreakerBackedHttpClient{
