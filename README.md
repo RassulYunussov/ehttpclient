@@ -52,7 +52,7 @@ retryClient := ehttpclient.Create(200*time.Millisecond, ehttpclient.WithCircuitB
 ### Retry + Circuit breaker
 
 ```
-ehttpClient := ehttpclient.CreateEnhancedHttpClient(200*time.Millisecond, ehttpclient.WithRetry(3, 100*time.Millisecond), ehttpclient.WithCircuitBreaker(1, 2, time.Second, time.Second))
+ehttpClient := ehttpclient.Create(200*time.Millisecond, ehttpclient.WithRetry(3, 100*time.Millisecond), ehttpclient.WithCircuitBreaker(1, 2, time.Second, time.Second))
 ```
 
 ### Make a request
