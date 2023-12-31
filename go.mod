@@ -1,4 +1,4 @@
-module ehttpclient
+module github.com/RassulYunussov/ehttpclient
 
 go 1.21
 
