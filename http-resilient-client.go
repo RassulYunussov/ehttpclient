@@ -3,6 +3,7 @@ package ehttpclient
 import (
 	"context"
 	"errors"
+	"io"
 	"math/rand"
 	"net/http"
 	"time"
@@ -36,6 +37,8 @@ func (c *resilientHttpClient) doWithRetry(r *http.Request) (*http.Response, erro
 			return nil, err
 		}
 		if err == nil {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
 			err = errHttp5xxStatus
 		}
 		if backoffTimeout > 1 {
