@@ -54,6 +54,26 @@ func TestNumberOfRequestsIs4For5xx(t *testing.T) {
 	assert.Equal(t, 4, *calls, "expected 4 calls")
 }
 
+func TestNumberOfRequestsIs1For5xx(t *testing.T) {
+	s, calls := getHttpServer(false, false)
+	defer s.Close()
+	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
+	client := Create(10*time.Millisecond, WithRetry(0, time.Millisecond))
+	_, err := client.Do(request)
+	assert.ErrorIs(t, err, errHttp5xxStatus)
+	assert.Equal(t, 1, *calls, "expected 1 call")
+}
+
+func TestNumberOfRequestsIs256For5xx(t *testing.T) {
+	s, calls := getHttpServer(false, false)
+	defer s.Close()
+	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
+	client := Create(time.Millisecond, WithRetry(255, time.Microsecond))
+	_, err := client.Do(request)
+	assert.ErrorIs(t, err, errHttp5xxStatus)
+	assert.Equal(t, 256, *calls, "expected 256 calls")
+}
+
 func TestTimeoutError(t *testing.T) {
 	s, calls := getHttpServer(false, true)
 	defer s.Close()

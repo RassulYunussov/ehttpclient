@@ -30,8 +30,8 @@ func Create(timeout time.Duration, opts ...func(*enhancedHttpClientCreationParam
 		retryParameters := enhancedHttpClientCreationParameters.retryParameters
 		resilientHttpClient.maxRetry = retryParameters.maxRetry
 		resilientHttpClient.backoffTimeout = retryParameters.backoffTimeout
-		resilientHttpClient.backOffs = make([]int64, retryParameters.maxRetry+1)
-		for i := uint8(0); i <= retryParameters.maxRetry; i++ {
+		resilientHttpClient.backOffs = make([]int64, uint16(retryParameters.maxRetry)+1)
+		for i := uint16(0); i <= uint16(retryParameters.maxRetry); i++ {
 			resilientHttpClient.backOffs[i] = int64(i+1) * int64(retryParameters.backoffTimeout)
 		}
 	}

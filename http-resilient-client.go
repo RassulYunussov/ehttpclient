@@ -27,7 +27,7 @@ func (c *resilientHttpClient) Do(r *http.Request) (*http.Response, error) {
 func (c *resilientHttpClient) doWithRetry(r *http.Request) (*http.Response, error) {
 	var resp *http.Response
 	var err error
-	for i := uint8(0); i <= c.maxRetry; i++ {
+	for i := uint16(0); i <= uint16(c.maxRetry); i++ {
 		resp, err = c.client.Do(r)
 		if err == nil {
 			if resp.StatusCode < http.StatusInternalServerError {
