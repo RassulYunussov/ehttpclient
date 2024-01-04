@@ -21,7 +21,7 @@ func (c *resilientHttpClient) DoResourceRequest(resource string, r *http.Request
 }
 
 func (c *resilientHttpClient) Do(r *http.Request) (*http.Response, error) {
-	return c.DoResourceRequest(getResource(r), r)
+	return c.doWithRetry(r)
 }
 
 func (c *resilientHttpClient) do(r *http.Request) (*http.Response, error) {
