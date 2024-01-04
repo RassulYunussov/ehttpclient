@@ -44,6 +44,27 @@ func TestOk(t *testing.T) {
 	assert.Equal(t, resp.StatusCode, http.StatusOK)
 }
 
+func TestNoResiliencyFeaturesOk(t *testing.T) {
+	s, calls := getHttpServer(true, false)
+	defer s.Close()
+	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
+	client := Create(200 * time.Millisecond)
+	resp, err := client.Do(request)
+	assert.NilError(t, err)
+	assert.Equal(t, 1, *calls, "expected 1 call")
+	assert.Equal(t, resp.StatusCode, http.StatusOK)
+}
+
+func TestNoResiliencyFeatures5xxError(t *testing.T) {
+	s, calls := getHttpServer(false, false)
+	defer s.Close()
+	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
+	client := Create(200 * time.Millisecond)
+	_, err := client.Do(request)
+	assert.ErrorIs(t, err, errHttp5xxStatus)
+	assert.Equal(t, 1, *calls, "expected 1 call")
+}
+
 func TestNumberOfRequestsIs4For5xx(t *testing.T) {
 	s, calls := getHttpServer(false, false)
 	defer s.Close()
@@ -102,7 +123,7 @@ func TestContextCancelError(t *testing.T) {
 	timedContext, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	cancel()
 	request, _ := http.NewRequestWithContext(timedContext, http.MethodGet, s.URL, nil)
-	client := Create(200 * time.Millisecond)
+	client := Create(200*time.Millisecond, WithRetry(3, time.Second))
 	_, err := client.Do(request)
 	assert.ErrorIs(t, err, context.Canceled)
 	assert.Equal(t, 0, *calls, "expected 0 call")
