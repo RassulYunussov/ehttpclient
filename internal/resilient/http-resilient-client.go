@@ -1,4 +1,4 @@
-package ehttpclient
+package resilient
 
 import (
 	"context"
@@ -7,13 +7,32 @@ import (
 	"math/rand"
 	"net/http"
 	"time"
+
+	local_errors "github.com/RassulYunussov/ehttpclient/internal/errors"
 )
 
+type ResilientHttpClient interface {
+	DoResourceRequest(resource string, r *http.Request) (*http.Response, error)
+	Do(r *http.Request) (*http.Response, error)
+}
+
 type resilientHttpClient struct {
-	client         *http.Client
-	maxRetry       uint8
-	backoffTimeout time.Duration
-	backoffs       []int64
+	client   *http.Client
+	maxRetry uint8
+	backoffs []int64
+}
+
+func CreateResilientHttpClient(timeout time.Duration, retryParameters *RetryParameters) ResilientHttpClient {
+	client := resilientHttpClient{client: &http.Client{Timeout: timeout}} // default to not retry
+	if retryParameters != nil {
+		client.maxRetry = retryParameters.MaxRetry
+		client.backoffs = make([]int64, uint16(retryParameters.MaxRetry))
+		int64BackoffTimeout := int64(retryParameters.BackoffTimeout)
+		for i := int64(0); i < int64(retryParameters.MaxRetry); i++ {
+			client.backoffs[i] = (i + 1) * int64BackoffTimeout
+		}
+	}
+	return &client
 }
 
 func (c *resilientHttpClient) DoResourceRequest(resource string, r *http.Request) (*http.Response, error) {
@@ -34,7 +53,7 @@ func (c *resilientHttpClient) do(r *http.Request) (*http.Response, error) {
 	}
 	_, _ = io.Copy(io.Discard, resp.Body)
 	resp.Body.Close()
-	return nil, errHttp5xxStatus
+	return nil, local_errors.ErrHttp5xxStatus
 }
 
 func (c *resilientHttpClient) backoff(step uint16) {

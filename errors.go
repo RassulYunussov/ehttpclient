@@ -1,9 +1,11 @@
 package ehttpclient
 
-import "errors"
+import (
+	"errors"
 
-var errHttp5xxStatus = errors.New("5xx http status error")
+	local_errors "github.com/RassulYunussov/ehttpclient/internal/errors"
+)
 
 func IsHttp5xxStatusError(err error) bool {
-	return errors.Is(err, errHttp5xxStatus)
+	return errors.Is(err, local_errors.ErrHttp5xxStatus)
 }
