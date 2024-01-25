@@ -1,13 +1,11 @@
 package cb
 
 import (
-	"fmt"
 	"net/http"
 	"sync"
 	"time"
 
 	"github.com/RassulYunussov/ehttpclient/internal/resilient"
-	"github.com/sony/gobreaker"
 )
 
 type CircuitBreakerHttpClient interface {
@@ -22,7 +20,7 @@ type circuitBreakerBackedHttpClient struct {
 	consecutiveFailures uint32
 	interval            time.Duration
 	timeout             time.Duration
-	circuitBreakers     map[string]*gobreaker.CircuitBreaker
+	circuitBreakers     map[string]*circuitBreaker[http.Request, http.Response]
 }
 
 func CreateCircuitBreakerHttpClient(resilientHttpClient resilient.ResilientHttpClient, circuitBreakerParameters *CircuitBreakerParameters) CircuitBreakerHttpClient {
@@ -33,40 +31,31 @@ func CreateCircuitBreakerHttpClient(resilientHttpClient resilient.ResilientHttpC
 		timeout:             circuitBreakerParameters.Timeout,
 		Mutex:               sync.Mutex{},
 		resilientHttpClient: resilientHttpClient,
-		circuitBreakers:     make(map[string]*gobreaker.CircuitBreaker),
+		circuitBreakers:     make(map[string]*circuitBreaker[http.Request, http.Response]),
 	}
 }
 
 func (c *circuitBreakerBackedHttpClient) DoResourceRequest(resource string, r *http.Request) (*http.Response, error) {
 	cb := c.getCircuitBreaker(resource)
-	resp, err := cb.Execute(func() (interface{}, error) {
-		return c.resilientHttpClient.Do(r)
-	})
+	resp, err := cb.execute(c.resilientHttpClient.Do, r)
 	if err != nil {
 		return nil, err
 	}
-	return resp.(*http.Response), nil
+	return resp, nil
 }
 
 func (c *circuitBreakerBackedHttpClient) Do(r *http.Request) (*http.Response, error) {
 	return c.DoResourceRequest(getResource(r), r)
 }
 
-func (c *circuitBreakerBackedHttpClient) getCircuitBreaker(resource string) *gobreaker.CircuitBreaker {
+func (c *circuitBreakerBackedHttpClient) getCircuitBreaker(resource string) *circuitBreaker[http.Request, http.Response] {
 	c.Lock()
 	defer c.Unlock()
 	if cb, ok := c.circuitBreakers[resource]; ok {
 		return cb
 	}
-	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
-		Name:        fmt.Sprintf("http client circuit breaker for resource %s", resource),
-		MaxRequests: c.maxRequests,
-		Interval:    c.interval,
-		Timeout:     c.timeout,
-		ReadyToTrip: func(counts gobreaker.Counts) bool {
-			return counts.ConsecutiveFailures >= c.consecutiveFailures
-		},
-	})
+	cb := newCircuitBreaker[http.Request, http.Response](c.maxRequests, c.interval, c.timeout, c.consecutiveFailures, resource)
+
 	c.circuitBreakers[resource] = cb
 	return cb
 }
