@@ -37,11 +37,7 @@ func CreateCircuitBreakerHttpClient(resilientHttpClient resilient.ResilientHttpC
 
 func (c *circuitBreakerBackedHttpClient) DoResourceRequest(resource string, r *http.Request) (*http.Response, error) {
 	cb := c.getCircuitBreaker(resource)
-	resp, err := cb.execute(c.resilientHttpClient.Do, r)
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
+	return cb.execute(c.resilientHttpClient.Do, r)
 }
 
 func (c *circuitBreakerBackedHttpClient) Do(r *http.Request) (*http.Response, error) {
