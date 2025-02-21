@@ -5,6 +5,7 @@ import (
 
 	"github.com/RassulYunussov/ehttpclient/common"
 	"github.com/RassulYunussov/ehttpclient/internal/cb"
+	"github.com/RassulYunussov/ehttpclient/internal/noop"
 	"github.com/RassulYunussov/ehttpclient/internal/resilient"
 )
 
@@ -14,11 +15,14 @@ func Create(timeout time.Duration, opts ...func(*enhancedHttpClientCreationParam
 	for _, o := range opts {
 		enhancedHttpClientCreationParameters = o(enhancedHttpClientCreationParameters)
 	}
-	circuitBreakerHttpClient := cb.CreateCircuitBreakerHttpClient(timeout, enhancedHttpClientCreationParameters.circuitBreakerParameters)
-	if enhancedHttpClientCreationParameters.retryParameters != nil && enhancedHttpClientCreationParameters.retryParameters.MaxRetry > 0 {
-		return resilient.CreateResilientHttpClient(circuitBreakerHttpClient, timeout, enhancedHttpClientCreationParameters.retryParameters)
+	client := noop.CreateNoOpHttpClient(timeout)
+	if enhancedHttpClientCreationParameters.circuitBreakerParameters != nil {
+		client = cb.CreateCircuitBreakerHttpClient(client, enhancedHttpClientCreationParameters.circuitBreakerParameters)
 	}
-	return circuitBreakerHttpClient
+	if enhancedHttpClientCreationParameters.retryParameters != nil && enhancedHttpClientCreationParameters.retryParameters.MaxRetry > 0 {
+		return resilient.CreateResilientHttpClient(client, timeout, enhancedHttpClientCreationParameters.retryParameters)
+	}
+	return client
 }
 
 // Apply retry policy to EnhancedHttpClient

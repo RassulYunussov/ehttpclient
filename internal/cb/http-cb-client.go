@@ -11,7 +11,7 @@ import (
 
 type circuitBreakerBackedHttpClient struct {
 	sync.Mutex
-	client              *http.Client
+	client              common.EnhancedHttpClient
 	maxRequests         uint32
 	consecutiveFailures uint32
 	interval            time.Duration
@@ -19,26 +19,21 @@ type circuitBreakerBackedHttpClient struct {
 	circuitBreakers     map[string]*circuitBreaker[http.Request, http.Response]
 }
 
-func CreateCircuitBreakerHttpClient(timeout time.Duration, circuitBreakerParameters *CircuitBreakerParameters) common.EnhancedHttpClient {
-	if circuitBreakerParameters == nil {
-		return &noCircuitBreakerHttpClient{
-			client: &http.Client{Timeout: timeout},
-		}
-	}
+func CreateCircuitBreakerHttpClient(client common.EnhancedHttpClient, circuitBreakerParameters *CircuitBreakerParameters) common.EnhancedHttpClient {
 	return &circuitBreakerBackedHttpClient{
 		maxRequests:         circuitBreakerParameters.MaxRequests,
 		consecutiveFailures: circuitBreakerParameters.ConsecutiveFailures,
 		interval:            circuitBreakerParameters.Interval,
 		timeout:             circuitBreakerParameters.Timeout,
 		Mutex:               sync.Mutex{},
-		client:              &http.Client{Timeout: timeout},
+		client:              client,
 		circuitBreakers:     make(map[string]*circuitBreaker[http.Request, http.Response]),
 	}
 }
 
 func (c *circuitBreakerBackedHttpClient) DoResourceRequest(resource string, r *http.Request) (*http.Response, error) {
 	cb := c.getCircuitBreaker(resource)
-	resp, err := cb.execute(c.execute, r)
+	resp, err := cb.execute(c.do, r)
 	var e *circuitBreakerErrorWrapper[*http.Response]
 	if errors.As(err, &e) {
 		return e.wrapped, nil
@@ -66,7 +61,7 @@ func getResource(r *http.Request) string {
 	return r.Method + "_" + r.URL.Path
 }
 
-func (c *circuitBreakerBackedHttpClient) execute(r *http.Request) (*http.Response, error) {
+func (c *circuitBreakerBackedHttpClient) do(r *http.Request) (*http.Response, error) {
 	resp, err := c.client.Do(r)
 	if err != nil {
 		return nil, err

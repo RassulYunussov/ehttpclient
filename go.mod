@@ -3,7 +3,7 @@ module github.com/RassulYunussov/ehttpclient
 go 1.21
 
 require (
-	github.com/sony/gobreaker v0.5.0
+	github.com/sony/gobreaker v1.0.0
 	gotest.tools/v3 v3.5.1
 )
 
