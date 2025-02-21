@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/RassulYunussov/ehttpclient/common"
-	"github.com/sony/gobreaker"
+	"github.com/sony/gobreaker/v2"
 )
 
 type resilientHttpClient struct {

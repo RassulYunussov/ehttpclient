@@ -10,7 +10,7 @@ import (
 
 	"github.com/RassulYunussov/ehttpclient"
 	"github.com/RassulYunussov/ehttpclient/internal/resilient"
-	"github.com/sony/gobreaker"
+	"github.com/sony/gobreaker/v2"
 	"gotest.tools/v3/assert"
 )
 
