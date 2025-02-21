@@ -8,24 +8,19 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/RassulYunussov/ehttpclient/internal/cb"
+	"github.com/RassulYunussov/ehttpclient/common"
 	"github.com/sony/gobreaker"
 )
 
-type ResilientHttpClient interface {
-	DoResourceRequest(resource string, r *http.Request) (*http.Response, error)
-	Do(r *http.Request) (*http.Response, error)
-}
-
 type resilientHttpClient struct {
-	client     cb.CircuitBreakerHttpClient
+	client     common.EnhancedHttpClient
 	maxRetry   uint8
 	maxTimeout time.Duration
 	backoffs   []int64
 }
 
-func CreateResilientHttpClient(cbClient cb.CircuitBreakerHttpClient, maxTimeout time.Duration, retryParameters *RetryParameters) ResilientHttpClient {
-	client := resilientHttpClient{client: cbClient} // default to not retry
+func CreateResilientHttpClient(enancedHttpClient common.EnhancedHttpClient, maxTimeout time.Duration, retryParameters *RetryParameters) common.EnhancedHttpClient {
+	client := resilientHttpClient{client: enancedHttpClient} // default to not retry
 	if retryParameters != nil {
 		client.maxTimeout = maxTimeout
 		client.maxRetry = retryParameters.MaxRetry
@@ -55,9 +50,6 @@ func (c *resilientHttpClient) backoff(step uint16) {
 }
 
 func (c *resilientHttpClient) doWithRetry(r *http.Request) (*http.Response, error) {
-	if c.maxRetry == 0 {
-		return c.client.Do(r)
-	}
 	var resp *http.Response
 	var err error
 	start := time.Now().UnixNano() / 1e6

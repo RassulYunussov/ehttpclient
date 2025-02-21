@@ -5,12 +5,9 @@ import (
 	"net/http"
 	"sync"
 	"time"
-)
 
-type CircuitBreakerHttpClient interface {
-	DoResourceRequest(resource string, r *http.Request) (*http.Response, error)
-	Do(r *http.Request) (*http.Response, error)
-}
+	"github.com/RassulYunussov/ehttpclient/common"
+)
 
 type circuitBreakerBackedHttpClient struct {
 	sync.Mutex
@@ -22,7 +19,7 @@ type circuitBreakerBackedHttpClient struct {
 	circuitBreakers     map[string]*circuitBreaker[http.Request, http.Response]
 }
 
-func CreateCircuitBreakerHttpClient(timeout time.Duration, circuitBreakerParameters *CircuitBreakerParameters) CircuitBreakerHttpClient {
+func CreateCircuitBreakerHttpClient(timeout time.Duration, circuitBreakerParameters *CircuitBreakerParameters) common.EnhancedHttpClient {
 	if circuitBreakerParameters == nil {
 		return &noCircuitBreakerHttpClient{
 			client: &http.Client{Timeout: timeout},

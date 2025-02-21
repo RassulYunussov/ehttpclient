@@ -1,32 +1,21 @@
 package ehttpclient
 
 import (
-	"net/http"
 	"time"
 
+	"github.com/RassulYunussov/ehttpclient/common"
 	"github.com/RassulYunussov/ehttpclient/internal/cb"
 	"github.com/RassulYunussov/ehttpclient/internal/resilient"
 )
 
-// Enhanced HttpClient backed by resiliency patterns.
-// Includes: retry & circuit breaker policies.
-// Retriable errors: http-5xx, network errors
-// Non-retriable errors: context.DeadlineExceeded|context.Canceled
-type EnhancedHttpClient interface {
-	// method should have a semantic resource name that will be used to separate circuit breakers
-	DoResourceRequest(resource string, r *http.Request) (*http.Response, error)
-	// classic HttpClient interface support, gets resource from path + method
-	Do(r *http.Request) (*http.Response, error)
-}
-
 // Get new instance of EnhancedHttpClient
-func Create(timeout time.Duration, opts ...func(*enhancedHttpClientCreationParameters) *enhancedHttpClientCreationParameters) EnhancedHttpClient {
+func Create(timeout time.Duration, opts ...func(*enhancedHttpClientCreationParameters) *enhancedHttpClientCreationParameters) common.EnhancedHttpClient {
 	enhancedHttpClientCreationParameters := new(enhancedHttpClientCreationParameters)
 	for _, o := range opts {
 		enhancedHttpClientCreationParameters = o(enhancedHttpClientCreationParameters)
 	}
 	circuitBreakerHttpClient := cb.CreateCircuitBreakerHttpClient(timeout, enhancedHttpClientCreationParameters.circuitBreakerParameters)
-	if enhancedHttpClientCreationParameters.retryParameters != nil {
+	if enhancedHttpClientCreationParameters.retryParameters != nil && enhancedHttpClientCreationParameters.retryParameters.MaxRetry > 0 {
 		return resilient.CreateResilientHttpClient(circuitBreakerHttpClient, timeout, enhancedHttpClientCreationParameters.retryParameters)
 	}
 	return circuitBreakerHttpClient
