@@ -1,6 +1,8 @@
 package resilient
 
-import "time"
+import (
+	"time"
+)
 
 type RetryParameters struct {
 	MaxRetry       uint8

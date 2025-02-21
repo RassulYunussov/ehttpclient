@@ -25,11 +25,11 @@ func Create(timeout time.Duration, opts ...func(*enhancedHttpClientCreationParam
 	for _, o := range opts {
 		enhancedHttpClientCreationParameters = o(enhancedHttpClientCreationParameters)
 	}
-	resilientHttpClient := resilient.CreateResilientHttpClient(timeout, enhancedHttpClientCreationParameters.retryParameters)
-	if enhancedHttpClientCreationParameters.circuitBreakerParameters != nil {
-		return cb.CreateCircuitBreakerHttpClient(resilientHttpClient, enhancedHttpClientCreationParameters.circuitBreakerParameters)
+	circuitBreakerHttpClient := cb.CreateCircuitBreakerHttpClient(timeout, enhancedHttpClientCreationParameters.circuitBreakerParameters)
+	if enhancedHttpClientCreationParameters.retryParameters != nil {
+		return resilient.CreateResilientHttpClient(circuitBreakerHttpClient, timeout, enhancedHttpClientCreationParameters.retryParameters)
 	}
-	return resilientHttpClient
+	return circuitBreakerHttpClient
 }
 
 // Apply retry policy to EnhancedHttpClient

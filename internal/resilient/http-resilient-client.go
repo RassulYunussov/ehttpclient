@@ -8,7 +8,8 @@ import (
 	"net/http"
 	"time"
 
-	local_errors "github.com/RassulYunussov/ehttpclient/internal/errors"
+	"github.com/RassulYunussov/ehttpclient/internal/cb"
+	"github.com/sony/gobreaker"
 )
 
 type ResilientHttpClient interface {
@@ -17,14 +18,16 @@ type ResilientHttpClient interface {
 }
 
 type resilientHttpClient struct {
-	client   *http.Client
-	maxRetry uint8
-	backoffs []int64
+	client     cb.CircuitBreakerHttpClient
+	maxRetry   uint8
+	maxTimeout time.Duration
+	backoffs   []int64
 }
 
-func CreateResilientHttpClient(timeout time.Duration, retryParameters *RetryParameters) ResilientHttpClient {
-	client := resilientHttpClient{client: &http.Client{Timeout: timeout}} // default to not retry
+func CreateResilientHttpClient(cbClient cb.CircuitBreakerHttpClient, maxTimeout time.Duration, retryParameters *RetryParameters) ResilientHttpClient {
+	client := resilientHttpClient{client: cbClient} // default to not retry
 	if retryParameters != nil {
+		client.maxTimeout = maxTimeout
 		client.maxRetry = retryParameters.MaxRetry
 		client.backoffs = make([]int64, uint16(retryParameters.MaxRetry))
 		int64BackoffTimeout := int64(retryParameters.BackoffTimeout)
@@ -43,19 +46,6 @@ func (c *resilientHttpClient) Do(r *http.Request) (*http.Response, error) {
 	return c.doWithRetry(r)
 }
 
-func (c *resilientHttpClient) do(r *http.Request) (*http.Response, error) {
-	resp, err := c.client.Do(r)
-	if err != nil {
-		return nil, err
-	}
-	if resp.StatusCode < http.StatusInternalServerError {
-		return resp, nil
-	}
-	_, _ = io.Copy(io.Discard, resp.Body)
-	resp.Body.Close()
-	return nil, local_errors.ErrHttp5xxStatus
-}
-
 func (c *resilientHttpClient) backoff(step uint16) {
 	if step != uint16(c.maxRetry) && c.backoffs[step] > 0 {
 		jitter := rand.Int63n(c.backoffs[step] >> 1)
@@ -65,17 +55,29 @@ func (c *resilientHttpClient) backoff(step uint16) {
 }
 
 func (c *resilientHttpClient) doWithRetry(r *http.Request) (*http.Response, error) {
+	if c.maxRetry == 0 {
+		return c.client.Do(r)
+	}
 	var resp *http.Response
 	var err error
+	start := time.Now().UnixNano() / 1e6
 	for i := uint16(0); i <= uint16(c.maxRetry); i++ {
-		resp, err = c.do(r)
-		if err == nil {
+		now := time.Now().UnixNano() / 1e6
+		if c.maxTimeout.Milliseconds() <= now-start {
+			return nil, context.DeadlineExceeded
+		}
+		resp, err = c.client.Do(r)
+		if err == nil && resp.StatusCode < http.StatusInternalServerError {
 			return resp, nil
 		}
-		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+		if errors.Is(err, context.Canceled) || errors.Is(err, gobreaker.ErrOpenState) || errors.Is(err, gobreaker.ErrTooManyRequests) {
 			return nil, err
+		}
+		if resp != nil {
+			_, _ = io.Copy(io.Discard, resp.Body)
+			resp.Body.Close()
 		}
 		c.backoff(i)
 	}
-	return nil, err
+	return nil, ErrRetriesExhausted
 }
