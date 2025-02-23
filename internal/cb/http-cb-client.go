@@ -43,12 +43,8 @@ func (c *circuitBreakerBackedHttpClient) Do(r *http.Request) (*http.Response, er
 }
 
 func (c *circuitBreakerBackedHttpClient) getCircuitBreaker(resource string) *circuitBreaker[http.Request, http.Response] {
-	if cb, ok := c.circuitBreakers.Load(resource); ok {
-		return cb.(*circuitBreaker[http.Request, http.Response])
-	}
-	cb := newCircuitBreaker[http.Request, http.Response](c.maxRequests, c.interval, c.timeout, c.consecutiveFailures, resource)
-	c.circuitBreakers.Store(resource, cb)
-	return cb
+	cb, _ := c.circuitBreakers.LoadOrStore(resource, newCircuitBreaker[http.Request, http.Response](c.maxRequests, c.interval, c.timeout, c.consecutiveFailures, resource))
+	return cb.(*circuitBreaker[http.Request, http.Response])
 }
 
 func getResource(r *http.Request) string {
