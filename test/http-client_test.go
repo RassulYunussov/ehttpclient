@@ -1,4 +1,4 @@
-package ehttpclient
+package test
 
 import (
 	"context"
@@ -16,38 +16,40 @@ import (
 
 const httpServerSleepTime = 50
 
-func getHttpServerWithResources(isOk []bool, resource []string, isTimeoutError []bool) (*httptest.Server, []*int) {
-	calls := make([]*int, len(isOk))
-	for i := 0; i < len(isOk); i++ {
+type testServerConfig struct {
+	returnStatus   int
+	resource       string
+	isTimeoutError bool
+}
+
+func createHttpServerWithConfigs(config []testServerConfig) (*httptest.Server, []*int) {
+	calls := make([]*int, len(config))
+	for i := 0; i < len(config); i++ {
 		calls[i] = new(int)
 	}
 	return httptest.NewServer(
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			for i := 0; i < len(isOk); i++ {
-				if r.RequestURI == resource[i] {
+			for i := 0; i < len(config); i++ {
+				if r.RequestURI == config[i].resource {
 					*calls[i]++
-					if isOk[i] {
-						w.WriteHeader(http.StatusOK)
-					}
-					if isTimeoutError[i] {
+					if config[i].isTimeoutError {
 						time.Sleep(httpServerSleepTime * time.Millisecond)
-						w.WriteHeader(http.StatusOK)
-					} else {
-						w.WriteHeader(http.StatusInternalServerError)
 					}
+					w.WriteHeader(config[i].returnStatus)
+					break
 				}
 			}
 		}),
 	), calls
 }
 
-func getHttpServer(isOk, isTimeoutError bool) (*httptest.Server, *int) {
-	server, calls := getHttpServerWithResources([]bool{isOk}, []string{"/"}, []bool{isTimeoutError})
+func createHttpServer(returnStatus int, isTimeoutError bool) (*httptest.Server, *int) {
+	server, calls := createHttpServerWithConfigs([]testServerConfig{{returnStatus, "/", isTimeoutError}})
 	return server, calls[0]
 }
 
 func TestOk(t *testing.T) {
-	s, calls := getHttpServer(true, false)
+	s, calls := createHttpServer(http.StatusOK, false)
 	defer s.Close()
 	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
 	client := ehttpclient.Create(200*time.Millisecond, ehttpclient.WithRetry(3, 50*time.Millisecond))
@@ -58,7 +60,7 @@ func TestOk(t *testing.T) {
 }
 
 func TestNoResiliencyFeaturesOk(t *testing.T) {
-	s, calls := getHttpServer(true, false)
+	s, calls := createHttpServer(http.StatusOK, false)
 	defer s.Close()
 	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
 	client := ehttpclient.Create(200 * time.Millisecond)
@@ -69,7 +71,7 @@ func TestNoResiliencyFeaturesOk(t *testing.T) {
 }
 
 func TestNoResiliencyFeatures5xxError(t *testing.T) {
-	s, calls := getHttpServer(false, false)
+	s, calls := createHttpServer(http.StatusInternalServerError, false)
 	defer s.Close()
 	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
 	client := ehttpclient.Create(200 * time.Millisecond)
@@ -80,7 +82,7 @@ func TestNoResiliencyFeatures5xxError(t *testing.T) {
 }
 
 func TestNumberOfRequestsIs4For5xx(t *testing.T) {
-	s, calls := getHttpServer(false, false)
+	s, calls := createHttpServer(http.StatusInternalServerError, false)
 	defer s.Close()
 	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
 	client := ehttpclient.Create(400*time.Millisecond, ehttpclient.WithRetry(3, 30*time.Millisecond))
@@ -89,8 +91,19 @@ func TestNumberOfRequestsIs4For5xx(t *testing.T) {
 	assert.Equal(t, 4, *calls, "expected 4 calls")
 }
 
-func TestNumberOfRequestsIs1For5xx(t *testing.T) {
-	s, calls := getHttpServer(false, false)
+func TestNumberOfRequestsIs1For4xx(t *testing.T) {
+	s, calls := createHttpServer(http.StatusBadRequest, false)
+	defer s.Close()
+	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
+	client := ehttpclient.Create(400*time.Millisecond, ehttpclient.WithRetry(3, 30*time.Millisecond))
+	resp, err := client.Do(request)
+	assert.NilError(t, err)
+	assert.Equal(t, http.StatusBadRequest, resp.StatusCode)
+	assert.Equal(t, 1, *calls, "expected 1 call1")
+}
+
+func TestNumberOfRequestsIs1For5xxAndZeroRetry(t *testing.T) {
+	s, calls := createHttpServer(http.StatusInternalServerError, false)
 	defer s.Close()
 	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
 	client := ehttpclient.Create(10*time.Millisecond, ehttpclient.WithRetry(0, time.Millisecond))
@@ -101,7 +114,7 @@ func TestNumberOfRequestsIs1For5xx(t *testing.T) {
 }
 
 func TestNumberOfRequestsIs256For5xx(t *testing.T) {
-	s, calls := getHttpServer(false, false)
+	s, calls := createHttpServer(http.StatusInternalServerError, false)
 	defer s.Close()
 	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
 	client := ehttpclient.Create(1000*time.Millisecond, ehttpclient.WithRetry(255, time.Microsecond))
@@ -111,7 +124,7 @@ func TestNumberOfRequestsIs256For5xx(t *testing.T) {
 }
 
 func TestTimeoutError(t *testing.T) {
-	s, calls := getHttpServer(false, true)
+	s, calls := createHttpServer(http.StatusOK, true)
 	defer s.Close()
 	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
 	client := ehttpclient.Create(20 * time.Millisecond)
@@ -121,7 +134,7 @@ func TestTimeoutError(t *testing.T) {
 }
 
 func TestContextDeadlineError(t *testing.T) {
-	s, calls := getHttpServer(false, true)
+	s, calls := createHttpServer(http.StatusOK, true)
 	defer s.Close()
 	timedContext, cancel := context.WithTimeout(context.Background(), 10*time.Millisecond)
 	defer cancel()
@@ -133,7 +146,7 @@ func TestContextDeadlineError(t *testing.T) {
 }
 
 func TestContextCancelError(t *testing.T) {
-	s, calls := getHttpServer(false, true)
+	s, calls := createHttpServer(http.StatusOK, true)
 	defer s.Close()
 	timedContext, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	cancel()
@@ -145,7 +158,7 @@ func TestContextCancelError(t *testing.T) {
 }
 
 func TestCircuitBreaker(t *testing.T) {
-	s, calls := getHttpServer(false, false)
+	s, calls := createHttpServer(http.StatusInternalServerError, false)
 	defer s.Close()
 	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
 	client := ehttpclient.Create(200*time.Millisecond, ehttpclient.WithCircuitBreaker(1, 1, time.Second, time.Second))
@@ -159,8 +172,24 @@ func TestCircuitBreaker(t *testing.T) {
 	assert.Equal(t, 1, *calls, "expected only 1 request to reach server")
 }
 
-func TestTwoCircuitBreakers(t *testing.T) {
-	s, calls := getHttpServerWithResources([]bool{false, true}, []string{"/v1/resource_one", "/v1/resource_two"}, []bool{false, false})
+func TestCircuitBreakerDoesNotCount4xx(t *testing.T) {
+	s, calls := createHttpServer(http.StatusBadRequest, false)
+	defer s.Close()
+	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
+	client := ehttpclient.Create(200*time.Millisecond, ehttpclient.WithCircuitBreaker(1, 1, time.Second, time.Second))
+	for i := 0; i < 10; i++ {
+		resp, err := client.Do(request)
+		assert.NilError(t, err)
+		assert.Equal(t, http.StatusBadRequest, resp.StatusCode, "expected http-400")
+	}
+	assert.Equal(t, 10, *calls, "expected all 10 requests to reach server")
+}
+
+func TestResourceDependentCircuitBreakers(t *testing.T) {
+	s, calls := createHttpServerWithConfigs([]testServerConfig{
+		{http.StatusInternalServerError, "/v1/resource_one", false},
+		{http.StatusOK, "/v1/resource_two", false},
+	})
 	defer s.Close()
 	request1, _ := http.NewRequest(http.MethodGet, s.URL+"/v1/resource_one", nil)
 	request2, _ := http.NewRequest(http.MethodGet, s.URL+"/v1/resource_two", nil)
@@ -169,31 +198,31 @@ func TestTwoCircuitBreakers(t *testing.T) {
 	resp2, err2 := client.Do(request2)
 	assert.NilError(t, err1)
 	assert.NilError(t, err2)
-	assert.Equal(t, 500, resp1.StatusCode, "expected http-500")
-	assert.Equal(t, 200, resp2.StatusCode, "expected http-200")
+	assert.Equal(t, http.StatusInternalServerError, resp1.StatusCode, "expected http-500")
+	assert.Equal(t, http.StatusOK, resp2.StatusCode, "expected http-200")
 	for i := 0; i < 10; i++ {
 		_, err1 := client.Do(request1)
 		resp2, err2 := client.Do(request2)
 		assert.ErrorIs(t, err1, gobreaker.ErrOpenState)
 		assert.NilError(t, err2)
-		assert.Equal(t, 200, resp2.StatusCode, "expected http-200")
+		assert.Equal(t, http.StatusOK, resp2.StatusCode, "expected http-200")
 	}
 	assert.Equal(t, 1, *calls[0], "expected only 1 request to reach server")
 	assert.Equal(t, 11, *calls[1], "expected only 1 request to reach server")
 }
 
 func TestRetryWithCircuitBreaker(t *testing.T) {
-	s, calls := getHttpServer(false, false)
+	s, calls := createHttpServer(http.StatusInternalServerError, false)
 	defer s.Close()
 	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
 	client := ehttpclient.Create(200*time.Millisecond, ehttpclient.WithRetry(2, 10*time.Millisecond), ehttpclient.WithCircuitBreaker(1, 2, time.Second, time.Second))
-	_, err1 := client.Do(request)
-	assert.ErrorIs(t, err1, gobreaker.ErrOpenState)
+	_, err := client.Do(request)
+	assert.ErrorIs(t, err, gobreaker.ErrOpenState)
 	assert.Equal(t, 2, *calls, "expected only 2 requests to reach server")
 }
 
 func TestCircuitBreakerTransitionToClosed(t *testing.T) {
-	s, calls := getHttpServer(false, false)
+	s, calls := createHttpServer(http.StatusInternalServerError, false)
 	defer s.Close()
 	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
 	client := ehttpclient.Create(200*time.Millisecond, ehttpclient.WithCircuitBreaker(1, 2, time.Second, time.Millisecond*100))
@@ -202,8 +231,8 @@ func TestCircuitBreakerTransitionToClosed(t *testing.T) {
 	_, err3 := client.Do(request)
 	assert.NilError(t, err1)
 	assert.NilError(t, err2)
-	assert.Equal(t, 500, resp1.StatusCode, "expected http-500")
-	assert.Equal(t, 500, resp2.StatusCode, "expected http-500")
+	assert.Equal(t, http.StatusInternalServerError, resp1.StatusCode, "expected http-500")
+	assert.Equal(t, http.StatusInternalServerError, resp2.StatusCode, "expected http-500")
 	assert.ErrorIs(t, err3, gobreaker.ErrOpenState)
 	time.Sleep(time.Millisecond * 100)
 	_, err4 := client.Do(request)
