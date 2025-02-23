@@ -10,13 +10,12 @@ import (
 )
 
 type circuitBreakerBackedHttpClient struct {
-	sync.Mutex
 	client              common.EnhancedHttpClient
 	maxRequests         uint32
 	consecutiveFailures uint32
 	interval            time.Duration
 	timeout             time.Duration
-	circuitBreakers     map[string]*circuitBreaker[http.Request, http.Response]
+	circuitBreakers     sync.Map
 }
 
 func CreateCircuitBreakerHttpClient(client common.EnhancedHttpClient, circuitBreakerParameters *CircuitBreakerParameters) common.EnhancedHttpClient {
@@ -25,9 +24,7 @@ func CreateCircuitBreakerHttpClient(client common.EnhancedHttpClient, circuitBre
 		consecutiveFailures: circuitBreakerParameters.ConsecutiveFailures,
 		interval:            circuitBreakerParameters.Interval,
 		timeout:             circuitBreakerParameters.Timeout,
-		Mutex:               sync.Mutex{},
 		client:              client,
-		circuitBreakers:     make(map[string]*circuitBreaker[http.Request, http.Response]),
 	}
 }
 
@@ -46,14 +43,11 @@ func (c *circuitBreakerBackedHttpClient) Do(r *http.Request) (*http.Response, er
 }
 
 func (c *circuitBreakerBackedHttpClient) getCircuitBreaker(resource string) *circuitBreaker[http.Request, http.Response] {
-	c.Lock()
-	defer c.Unlock()
-	if cb, ok := c.circuitBreakers[resource]; ok {
-		return cb
+	if cb, ok := c.circuitBreakers.Load(resource); ok {
+		return cb.(*circuitBreaker[http.Request, http.Response])
 	}
 	cb := newCircuitBreaker[http.Request, http.Response](c.maxRequests, c.interval, c.timeout, c.consecutiveFailures, resource)
-
-	c.circuitBreakers[resource] = cb
+	c.circuitBreakers.Store(resource, cb)
 	return cb
 }
 

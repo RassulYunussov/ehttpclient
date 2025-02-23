@@ -16,22 +16,34 @@ import (
 
 const httpServerSleepTime = 50
 
-func getHttpServer(isOk, isTimeoutError bool) (*httptest.Server, *int) {
-	calls := 0
+func getHttpServerWithResources(isOk []bool, resource []string, isTimeoutError []bool) (*httptest.Server, []*int) {
+	calls := make([]*int, len(isOk))
+	for i := 0; i < len(isOk); i++ {
+		calls[i] = new(int)
+	}
 	return httptest.NewServer(
-		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-			calls++
-			if isOk {
-				w.WriteHeader(http.StatusOK)
-			}
-			if isTimeoutError {
-				time.Sleep(httpServerSleepTime * time.Millisecond)
-				w.WriteHeader(http.StatusOK)
-			} else {
-				w.WriteHeader(http.StatusInternalServerError)
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			for i := 0; i < len(isOk); i++ {
+				if r.RequestURI == resource[i] {
+					*calls[i]++
+					if isOk[i] {
+						w.WriteHeader(http.StatusOK)
+					}
+					if isTimeoutError[i] {
+						time.Sleep(httpServerSleepTime * time.Millisecond)
+						w.WriteHeader(http.StatusOK)
+					} else {
+						w.WriteHeader(http.StatusInternalServerError)
+					}
+				}
 			}
 		}),
-	), &calls
+	), calls
+}
+
+func getHttpServer(isOk, isTimeoutError bool) (*httptest.Server, *int) {
+	server, calls := getHttpServerWithResources([]bool{isOk}, []string{"/"}, []bool{isTimeoutError})
+	return server, calls[0]
 }
 
 func TestOk(t *testing.T) {
@@ -145,6 +157,29 @@ func TestCircuitBreaker(t *testing.T) {
 		assert.ErrorIs(t, err, gobreaker.ErrOpenState)
 	}
 	assert.Equal(t, 1, *calls, "expected only 1 request to reach server")
+}
+
+func TestTwoCircuitBreakers(t *testing.T) {
+	s, calls := getHttpServerWithResources([]bool{false, true}, []string{"/v1/resource_one", "/v1/resource_two"}, []bool{false, false})
+	defer s.Close()
+	request1, _ := http.NewRequest(http.MethodGet, s.URL+"/v1/resource_one", nil)
+	request2, _ := http.NewRequest(http.MethodGet, s.URL+"/v1/resource_two", nil)
+	client := ehttpclient.Create(200*time.Millisecond, ehttpclient.WithCircuitBreaker(1, 1, time.Second, time.Second))
+	resp1, err1 := client.Do(request1)
+	resp2, err2 := client.Do(request2)
+	assert.NilError(t, err1)
+	assert.NilError(t, err2)
+	assert.Equal(t, 500, resp1.StatusCode, "expected http-500")
+	assert.Equal(t, 200, resp2.StatusCode, "expected http-200")
+	for i := 0; i < 10; i++ {
+		_, err1 := client.Do(request1)
+		resp2, err2 := client.Do(request2)
+		assert.ErrorIs(t, err1, gobreaker.ErrOpenState)
+		assert.NilError(t, err2)
+		assert.Equal(t, 200, resp2.StatusCode, "expected http-200")
+	}
+	assert.Equal(t, 1, *calls[0], "expected only 1 request to reach server")
+	assert.Equal(t, 11, *calls[1], "expected only 1 request to reach server")
 }
 
 func TestRetryWithCircuitBreaker(t *testing.T) {
