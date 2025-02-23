@@ -20,5 +20,5 @@ func (c *noOpHttpClient) DoResourceRequest(resource string, r *http.Request) (*h
 }
 
 func (c *noOpHttpClient) Do(r *http.Request) (*http.Response, error) {
-	return c.DoResourceRequest("", r)
+	return c.client.Do(r)
 }
