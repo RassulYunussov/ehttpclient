@@ -78,7 +78,7 @@ func TestNoResiliencyFeatures5xxError(t *testing.T) {
 	resp, err := client.Do(request)
 	assert.NilError(t, err)
 	assert.Equal(t, 1, *calls, "expected 1 call")
-	assert.Equal(t, 500, resp.StatusCode, "expected http-500")
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode, "expected http-500")
 }
 
 func TestNumberOfRequestsIs4For5xx(t *testing.T) {
@@ -109,7 +109,7 @@ func TestNumberOfRequestsIs1For5xxAndZeroRetry(t *testing.T) {
 	client := ehttpclient.Create(10*time.Millisecond, ehttpclient.WithRetry(0, time.Millisecond))
 	resp, err := client.Do(request)
 	assert.NilError(t, err)
-	assert.Equal(t, 500, resp.StatusCode, "expected http-500")
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode, "expected http-500")
 	assert.Equal(t, 1, *calls, "expected 1 call")
 }
 
@@ -164,7 +164,7 @@ func TestCircuitBreaker(t *testing.T) {
 	client := ehttpclient.Create(200*time.Millisecond, ehttpclient.WithCircuitBreaker(1, 1, time.Second, time.Second))
 	resp, err1 := client.Do(request)
 	assert.NilError(t, err1)
-	assert.Equal(t, 500, resp.StatusCode, "expected http-500")
+	assert.Equal(t, http.StatusInternalServerError, resp.StatusCode, "expected http-500")
 	for i := 0; i < 10; i++ {
 		_, err := client.Do(request)
 		assert.ErrorIs(t, err, gobreaker.ErrOpenState)
