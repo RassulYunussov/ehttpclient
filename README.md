@@ -62,3 +62,5 @@ ehttpClient := ehttpclient.Create(200*time.Millisecond, ehttpclient.WithRetry(3,
 request, err := http.NewRequest(http.MethodGet, "http://localhost:8080", nil)
 response, err := client.Do(request)
 ```
+
+Notes: care should be taken with "Do" methoud using circuit breaker pattern. It uses resource URI. With high cardinality it may lead to memory exhaustion. Prefer using "DoResourceRequest" with controlled number of resources. 
