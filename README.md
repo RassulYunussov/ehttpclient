@@ -1,4 +1,6 @@
 # Enhanced Http Client
+[![GoDoc](https://godoc.org/github.com/sony/gobreaker/v2?status.svg)](https://pkg.go.dev/github.com/RassulYunussov/ehttpclient)
+
 
 Http Client Library that provides "enhanced" http client with resiliency & circuit breaker backed functionality
 
