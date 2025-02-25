@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/RassulYunussov/ehttpclient/common"
+	"github.com/RassulYunussov/ehttpclient/internal/common"
 )
 
 type circuitBreakerBackedHttpClient struct {

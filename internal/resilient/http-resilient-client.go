@@ -8,7 +8,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/RassulYunussov/ehttpclient/common"
+	"github.com/RassulYunussov/ehttpclient/internal/common"
 	"github.com/sony/gobreaker/v2"
 )
 

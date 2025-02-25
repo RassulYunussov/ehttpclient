@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/RassulYunussov/ehttpclient/common"
+	"github.com/RassulYunussov/ehttpclient/internal/common"
 )
 
 type noOpHttpClient struct {
