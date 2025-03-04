@@ -52,10 +52,10 @@ func (c *resilientHttpClient) backoff(step uint16) {
 func (c *resilientHttpClient) doWithRetry(r *http.Request) (*http.Response, error) {
 	var resp *http.Response
 	var err error
-	start := time.Now().UnixNano() / 1e6
+	start := time.Now()
 	for i := uint16(0); i <= uint16(c.maxRetry); i++ {
-		now := time.Now().UnixNano() / 1e6
-		if c.maxTimeout.Milliseconds() <= now-start {
+		now := time.Now()
+		if now.Sub(start) >= c.maxTimeout {
 			return nil, context.DeadlineExceeded
 		}
 		resp, err = c.client.Do(r)
