@@ -31,6 +31,11 @@ jobs:
 
     - name: Test
       run: go test -v ./test/...
+  
+    - name: golangci-lint
+      uses: golangci/golangci-lint-action@v6
+      with:
+        version: v1.64
 
     - name: Add tag & Release
       if: github.ref == 'refs/heads/main'
