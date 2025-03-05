@@ -9,6 +9,9 @@ on:
   pull_request:
     branches: [ "main" ]
 
+permissions:
+  contents: write
+
 jobs:
 
   build:
@@ -26,3 +29,15 @@ jobs:
 
     - name: Test
       run: go test -v ./test/...
+
+  tag:
+    runs-on: ubnutu-latest
+    needs: [build]
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Add tag & Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: bash .github/tag.sh
