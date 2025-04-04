@@ -41,7 +41,7 @@ The retry policy uses multiplication of attempt & backoffTimeout
 ```
 // retry count 3
 // backoff timeout
-retryClient := ehttpclient.Create(200*time.Millisecond, ehttpclient.WithRetry(3, 100*time.Millisecond))
+retryClient := ehttpclient.Create(200*time.Millisecond, ehttpclient.WithRetry(3, 3*100*time.Millisecond, 100*time.Millisecond))
 ```
 
 ### Circuit breaker
@@ -54,7 +54,7 @@ retryClient := ehttpclient.Create(200*time.Millisecond, ehttpclient.WithCircuitB
 ### Retry + Circuit breaker
 
 ```
-ehttpClient := ehttpclient.Create(200*time.Millisecond, ehttpclient.WithRetry(3, 100*time.Millisecond), ehttpclient.WithCircuitBreaker(1, 2, time.Second, time.Second))
+ehttpClient := ehttpclient.Create(200*time.Millisecond, ehttpclient.WithRetry(3, 3*100*time.Millisecond, 100*time.Millisecond), ehttpclient.WithCircuitBreaker(1, 2, time.Second, time.Second))
 ```
 
 ### Make a request

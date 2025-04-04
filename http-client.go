@@ -31,18 +31,20 @@ func Create(timeout time.Duration, opts ...func(*enhancedHttpClientCreationParam
 		client = cb.CreateCircuitBreakerHttpClient(client, enhancedHttpClientCreationParameters.circuitBreakerParameters)
 	}
 	if enhancedHttpClientCreationParameters.retryParameters != nil && enhancedHttpClientCreationParameters.retryParameters.MaxRetry > 0 {
-		client = resilient.CreateResilientHttpClient(client, timeout, enhancedHttpClientCreationParameters.retryParameters)
+		client = resilient.CreateResilientHttpClient(client, enhancedHttpClientCreationParameters.retryParameters)
 	}
 	return client
 }
 
 // Apply retry policy to EnhancedHttpClient
 func WithRetry(maxRetry uint8,
+	maxDelay time.Duration,
 	backoffTimeout time.Duration) func(h *enhancedHttpClientCreationParameters) *enhancedHttpClientCreationParameters {
 	return func(h *enhancedHttpClientCreationParameters) *enhancedHttpClientCreationParameters {
 		retryParameters := new(resilient.RetryParameters)
 		retryParameters.BackoffTimeout = backoffTimeout
 		retryParameters.MaxRetry = maxRetry
+		retryParameters.MaxDelay = maxDelay
 		h.retryParameters = retryParameters
 		return h
 	}
