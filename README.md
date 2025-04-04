@@ -40,6 +40,7 @@ The retry policy uses multiplication of attempt & backoffTimeout
 
 ```
 // retry count 3
+// max delay timeout
 // backoff timeout
 retryClient := ehttpclient.Create(200*time.Millisecond, ehttpclient.WithRetry(3, 3*100*time.Millisecond, 100*time.Millisecond))
 ```
