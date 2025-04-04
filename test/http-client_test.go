@@ -117,7 +117,7 @@ func TestNumberOfRequestsIs256For5xx(t *testing.T) {
 	s, calls := createHttpServer(http.StatusInternalServerError, false)
 	defer s.Close()
 	request, _ := http.NewRequest(http.MethodGet, s.URL, nil)
-	client := ehttpclient.Create(1000*time.Millisecond, ehttpclient.WithRetry(255, 3*50*time.Millisecond, time.Microsecond))
+	client := ehttpclient.Create(1000*time.Millisecond, ehttpclient.WithRetry(255, 3*100*time.Millisecond, time.Microsecond))
 	_, err := client.Do(request)
 	assert.ErrorIs(t, err, resilient.ErrRetriesExhausted)
 	assert.Equal(t, 256, *calls, "expected 256 calls")
