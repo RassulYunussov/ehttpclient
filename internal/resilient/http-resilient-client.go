@@ -13,16 +13,16 @@ import (
 )
 
 type resilientHttpClient struct {
-	client     common.EnhancedHttpClient
-	maxRetry   uint8
-	maxTimeout time.Duration
-	backoffs   []int64
+	client   common.EnhancedHttpClient
+	maxRetry uint8
+	maxDelay time.Duration
+	backoffs []int64
 }
 
-func CreateResilientHttpClient(enancedHttpClient common.EnhancedHttpClient, maxTimeout time.Duration, retryParameters *RetryParameters) common.EnhancedHttpClient {
+func CreateResilientHttpClient(enancedHttpClient common.EnhancedHttpClient, retryParameters *RetryParameters) common.EnhancedHttpClient {
 	client := resilientHttpClient{client: enancedHttpClient} // default to not retry
 	if retryParameters != nil {
-		client.maxTimeout = maxTimeout
+		client.maxDelay = retryParameters.MaxDelay
 		client.maxRetry = retryParameters.MaxRetry
 		client.backoffs = make([]int64, uint16(retryParameters.MaxRetry))
 		int64BackoffTimeout := int64(retryParameters.BackoffTimeout)
@@ -55,7 +55,7 @@ func (c *resilientHttpClient) doWithRetry(r *http.Request) (*http.Response, erro
 	start := time.Now()
 	for i := uint16(0); i <= uint16(c.maxRetry); i++ {
 		now := time.Now()
-		if now.Sub(start) >= c.maxTimeout {
+		if now.Sub(start) >= c.maxDelay {
 			return nil, context.DeadlineExceeded
 		}
 		resp, err = c.client.Do(r)
