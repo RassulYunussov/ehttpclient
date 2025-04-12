@@ -55,7 +55,7 @@ func (c *resilientHttpClient) doWithRetry(r *http.Request) (*http.Response, erro
 	start := time.Now()
 	for i := uint16(0); i <= uint16(c.maxRetry); i++ {
 		now := time.Now()
-		if now.Sub(start) >= c.maxDelay {
+		if now.Sub(start) > c.maxDelay {
 			return nil, context.DeadlineExceeded
 		}
 		resp, err = c.client.Do(r)
